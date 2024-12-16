@@ -8,7 +8,7 @@ services:
   client-gateway:
     build: ./client-gateway
     ports: 
-      - 3000:3000
+      - ${CLIENT_GATEWAY_PORT}:${CLIENT_GATEWAY_PORT}
     volumes:
       - ./client-gateway/src:/usr/src/app/src
     command: npm run start:dev
@@ -27,21 +27,23 @@ services:
       - PORT=3001
       - NATS_SERVERS=nats://nats-server:4222
       - DATABASE_URL=file:./dev.db
+
+   # Orders MS
   orders-ms:
     depends_on:
       - orders-db
     build: ./orders-ms
-    ports: 
-      - ${ORDERS_MS_PORT}:${ORDERS_MS_PORT}
     volumes:
       - ./orders-ms/src:/usr/src/app/src
     command: npm run start:dev
     environment:
       - PORT=3002
-      - NATS_SERVERS=nats://nats-server:4222
       - DATABASE_URL=postgresql://postgres:123456@orders-db:5432/ordersdb?schema=public
+      - NATS_SERVERS=nats://nats-server:4222
+
+  # Orders DB
   orders-db:
-    container_name: orders-db
+    container_name: orders_database
     image: postgres:16.2
     restart: always
     volumes:
@@ -64,6 +66,15 @@ services:
     volumes:
       - ./payments-ms/src:/usr/src/app/src
     command: npm run start:dev
+    develop:
+      watch:
+        - action: sync
+          path: ./payments-ms/src
+          target: /usr/src/app/src
+          ignore: 
+            - node_modules
+        - action: rebuild
+          path: package.json
     environment:
       - PORT=${PAYMENTS_MS_PORT}
       - NATS_SERVERS=nats://nats-server:4222
